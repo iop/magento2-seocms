@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="general">
+            <group id="locale">
+                <field id="seo_language_code" type="text" sortOrder="4" showInDefault="0" showInWebsite="0" showInStore="1">
+                    <label>SEO Language Code</label>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

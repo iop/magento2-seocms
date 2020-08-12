@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+
+/** @var $block \Iop\SeoCms\Block\SeoCms */
+$data = $block->getLinksData();
+?>
+<?php if (is_array($data) && count($data) > 0) : ?>
+    <?php foreach ($data as $item) : ?>
+<link rel="alternate" hreflang="<?= $block->escapeHtml($item['storeLanguage']) ?>" href="<?= $block->escapeUrl($item['pageUrl']) ?>"/>
+    <?php endforeach; ?>
+<?php endif; ?>
