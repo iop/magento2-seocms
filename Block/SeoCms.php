@@ -6,8 +6,8 @@ namespace Iop\SeoCms\Block;
 use Magento\Cms\Model\PageRepository;
 use Magento\Cms\Model\ResourceModel\Page as PageResource;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ResourceModel\Store\CollectionFactory as StoreCollectionFactory;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 
@@ -41,13 +41,16 @@ class SeoCms extends Template
      * @var StoreManagerInterface
      */
     protected $storeManager;
+    /**
+     * @var StoreRepository
+     */
+    protected $storeRepository;
 
     /**
      * SeoCms constructor.
      * @param Template\Context $context
      * @param PageRepository $pageRepository
      * @param PageResource $resourcePage
-     * @param StoreCollectionFactory $storeCollectionFactory
      * @param StoreManagerInterface $storeManager
      * @param ScopeConfigInterface $scopeConfig
      * @param array $data
@@ -56,7 +59,6 @@ class SeoCms extends Template
         Template\Context $context,
         PageRepository $pageRepository,
         PageResource $resourcePage,
-        StoreCollectionFactory $storeCollectionFactory,
         StoreManagerInterface $storeManager,
         ScopeConfigInterface $scopeConfig,
         array $data = []
@@ -64,7 +66,6 @@ class SeoCms extends Template
         parent::__construct($context, $data);
         $this->pageRepository = $pageRepository;
         $this->resourcePage = $resourcePage;
-        $this->storeCollectionFactory = $storeCollectionFactory;
         $this->storeManager = $storeManager;
         $this->scopeConfig = $scopeConfig;
     }
@@ -78,35 +79,24 @@ class SeoCms extends Template
         /** @var array $data */
         $data = [];
 
-        $pageId = $this->getRequest()->getParam('page_id', $this->getRequest()->getParam('id', false));
+        $pageId = (int)$this->getRequest()->getParam('page_id', $this->getRequest()->getParam('id', 0));
         if (!$pageId) {
             return null;
         }
 
+        /** @var string $pageIndentifier */
+        $pageIndentifier = $this->getPageIdentifier($pageId);
+
         /** @var array $storeIds */
-        $storeIds = $this->resourcePage->lookupStoreIds((int)$pageId);
+        $storeIds = $this->resourcePage->lookupStoreIds($pageId);
 
-        if (is_array($storeIds) && !count($storeIds)) {
-            return null;
-        }
-
-        /** @var StoreCollectionFactory $storeCollection */
-        $storeCollection = $this->storeCollectionFactory->create()
-            ->addFieldToFilter('store_id', ['in' => $storeIds])
-            ->addFieldToFilter('website_id', ['neq' => 0]);
-
-        $storeCollection->getSelect()
-            ->reset(\Zend_Db_Select::COLUMNS)
-            ->columns(['website_id'])
-            ->group('website_id');
-
-        /** data is prepared when websites by storesIds found more then 1 */
-        if ($storeCollection->getSize() > 1) {
-            /** @var string $pageIndentifier */
-            $pageIndentifier = $this->getPageIdentifier($pageId);
+        /** links data is prepared when storesIds qty more then 1 */
+        if (is_array($storeIds) && count($storeIds) > 1 && !empty($pageIndentifier)) {
 
             foreach ($storeIds as $storeId) {
                 $store = $this->storeManager->getStore((int)$storeId);
+
+                /** TODO: check is unique websiteID  */
 
                 /** @var string $pageUrl */
                 $pageUrl = $store->getBaseUrl() . $pageIndentifier;
@@ -116,6 +106,8 @@ class SeoCms extends Template
                     'pageUrl' => $pageUrl
                 ];
             }
+        } else {
+            return null;
         }
 
         return $data;
@@ -152,13 +144,12 @@ class SeoCms extends Template
      * @return string|null
      * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
-    public function getPageIdentifier($pageId): ?string
+    public function getPageIdentifier(int $pageId): ?string
     {
-        /** @var Magento\Cms\Model\PageRepository $page */
-        $page = $this->pageRepository->getById($pageId);
-        if (!$page->getId()) {
-            return null;
+        try {
+            return $this->pageRepository->getById($pageId)->getIdentifier();
+        } catch (NoSuchEntityException $e) {
         }
-        return $page->getIdentifier();
+        return null;
     }
 }
